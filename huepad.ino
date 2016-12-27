@@ -134,7 +134,19 @@ boolean hueIsPaired() {
 }
 void huePair() {
 	http.begin(bridgeIP, 80, String("/api"));
-	int code = http.POST(R"({"devicetype":"huepad"})");
+	
+	//get MAC - thanks https://github.com/esp8266/Arduino/issues/313
+	byte mac[6];
+	WiFi.macAddress(mac);
+	String cMac = "";
+	for (int i = 0; i < 6; ++i) {
+		cMac += String(mac[i],HEX);
+		//if(i<5) cMac += "-";
+	}
+
+	String post = String("{\"devicetype\":\"huepad#") + cMac + "\"}";
+	Serial.print("post: "); Serial.println(post);
+	int code = http.POST(post);
 	Serial.print("pairing request got "); Serial.print(code); Serial.print(": ");
 	String result = http.getString();
 	Serial.println(result);
