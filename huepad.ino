@@ -181,8 +181,18 @@ void hueIncrementGroupBrightness(int number, int inc) {
 void setup()
 {
 	Serial.begin(115200);
+	Serial.println();
 	delay(200);
 	Serial.println("huepad");
+
+	Serial.println("Starting keypad");
+	IBridge_GPIO_Config();
+
+	if ( getKeyWithDebounce(1000) == 5 ) {
+		Serial.println("Button 5 was held. Forgetting everything - this could take a while.");
+		WiFi.disconnect();
+		SPIFFS.format();
+	}
 
 	Serial.println("Starting wireless.");
 	WiFiManager wifiManager; //Load the Wi-Fi Manager library.
@@ -194,9 +204,6 @@ void setup()
 	}
 	Serial.print("WiFi connected: ");
 	Serial.println(WiFi.localIP());
-
-	Serial.println("Starting keypad");
-	IBridge_GPIO_Config();
 
 	Serial.println("Asking for your Hue bridges using N-UPnP hack... ");
 	WiFiClientSecure client;
