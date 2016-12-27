@@ -168,6 +168,15 @@ void hueSetGroupState(int number, boolean desiredState) {
 void hueToggleGroupState(int number) {
 	hueSetGroupState(number, !hueGetGroupState(number));
 }
+void hueIncrementGroupBrightness(int number, int inc) {
+	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
+	String data = String("{\"bri_inc\":") + inc + "}";
+	int code = http.PUT(data);
+	Serial.print("setting group "); Serial.print(number); Serial.print(" - "); Serial.print(data); Serial.print(" - result: ");
+	String result = http.getString();
+	Serial.println(result);
+	http.end();
+}
 
 void setup()
 {
@@ -280,7 +289,7 @@ void loop()
 	} 
 	if ( button == 7 ) {
 		//dim that light
-		Serial.println("Dimming not implemented yet");
+		hueIncrementGroupBrightness(lastSelectorButtonPressed-1, -BRI_INC);
 		actionDone = true;
 	}
 	if ( button == 8 ) {
@@ -290,7 +299,7 @@ void loop()
 	}
 	if ( button == 9 ) {
 		//brighten that light
-		Serial.println("Brightening not implemented yet");
+		hueIncrementGroupBrightness(lastSelectorButtonPressed-1, BRI_INC);
 		actionDone = true;
 	}
 
