@@ -115,9 +115,9 @@ String jsonPseudoDecode(String json, String key) {
 
 
 boolean hueIsPaired() {
-	Serial.print("checking pairing to bridge at "); Serial.print(bridgeIP); Serial.print(": ");
+	Serial.print("checking pairing to bridge at "); Serial.println(bridgeIP); //Serial.print(": ");
 	String url = String("http://") + bridgeIP + "/api/" + token + "/lights";
-	Serial.println(url);
+	//Serial.println(url);
 
 	http.begin(url);
 	int code = http.GET();
@@ -211,7 +211,8 @@ Connection: close
 	}
 	Serial.println(" receiving data... ");
 	String lineStr = client.readStringUntil('\n');
-	Serial.println(lineStr);
+	//Serial.println(lineStr);
+
 	//oh boy
 	int temp = lineStr.indexOf("internalipaddress");
 	if ( temp < 0 ) {
@@ -258,8 +259,7 @@ Connection: close
 	}
 
 
-
-	Serial.println("Startup complete");
+	Serial.println("Startup complete - helo frien");
 }
 
 void loop()
