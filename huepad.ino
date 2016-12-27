@@ -170,13 +170,23 @@ boolean hueGetGroupState(int number) {
 }
 void hueSetGroupState(int number, boolean desiredState) {
 	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
-	String data = String("{\"on\":") + (desiredState ? "true" : "false") + "}";
+	String data = String("{\"on\":") + (desiredState ? "true" : "false") + ", \"effect\":\"none\"}";
 	int code = http.PUT(data);
 	Serial.print("setting group "); Serial.print(number); Serial.print(" - "); Serial.print(data); Serial.print(" - result: ");
 	String result = http.getString();
 	Serial.println(result);
 	http.end();
 }
+void hueSetGroupEffect(int number) {
+	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
+	String data = "{\"effect\":\"colorloop\"}";
+	int code = http.PUT(data);
+	Serial.print("setting group "); Serial.print(number); Serial.print(" - "); Serial.print(data); Serial.print(" - result: ");
+	String result = http.getString();
+	Serial.println(result);
+	http.end();
+}
+
 void hueToggleGroupState(int number) {
 	hueSetGroupState(number, !hueGetGroupState(number));
 }
@@ -307,17 +317,17 @@ void loop()
 		actionDone = true;
 	} 
 	if ( button == 7 ) {
-		//dim that light
+		//dim that group
 		hueIncrementGroupBrightness(lastSelectorButtonPressed-1, -BRI_INC);
 		actionDone = true;
 	}
 	if ( button == 8 ) {
-		//party-mode that light
-		Serial.println("Party mode not implemented yet");
+		//party-mode that group
+		hueSetGroupEffect(lastSelectorButtonPressed-1);
 		actionDone = true;
 	}
 	if ( button == 9 ) {
-		//brighten that light
+		//brighten that group
 		hueIncrementGroupBrightness(lastSelectorButtonPressed-1, BRI_INC);
 		actionDone = true;
 	}
