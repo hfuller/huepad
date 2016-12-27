@@ -219,7 +219,7 @@ void setup()
 	Serial.println("Starting wireless.");
 	WiFiManager wifiManager; //Load the Wi-Fi Manager library.
 	wifiManager.setTimeout(300); //Give up with the AP if no users gives us configuration in this many secs.
-	if(!wifiManager.autoConnect()) {
+	if(!wifiManager.autoConnect("huepad Setup")) {
 		Serial.println("failed to connect and hit timeout");
 		delay(3000);
 		ESP.restart();
