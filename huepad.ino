@@ -2,12 +2,15 @@
 #include <ESP8266HTTPClient.h>
 #include <FS.h>
 
-int IBRIDGE_PIN_COL0 = 16;
-int IBRIDGE_PIN_COL1 = 5;
-int IBRIDGE_PIN_COL2 = 4;
-int IBRIDGE_PIN_ROW0 = 0;
-int IBRIDGE_PIN_ROW1 = 2;
-int IBRIDGE_PIN_ROW2 = 14;
+#define IBRIDGE_PIN_COL0 16
+#define IBRIDGE_PIN_COL1 5
+#define IBRIDGE_PIN_COL2 4
+#define IBRIDGE_PIN_ROW0 0
+#define IBRIDGE_PIN_ROW1 2
+#define IBRIDGE_PIN_ROW2 14
+
+//by how many do we adjust the brightness during dimming or brightening?
+#define BRI_INC 5
 
 void IBridge_GPIO_Config(void);
 
