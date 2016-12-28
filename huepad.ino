@@ -1,6 +1,14 @@
 #include <WiFiManager.h>
 #include <ESP8266HTTPClient.h>
 #include <FS.h>
+#include <ESP8266WebServer.h>
+
+#define VERSION 6
+
+//by how many do we adjust the brightness during dimming or brightening?
+#define BRI_INC 5
+
+/////////////////////////////////////////////////////////////////////
 
 #define IBRIDGE_PIN_COL0 16
 #define IBRIDGE_PIN_COL1 5
@@ -9,19 +17,31 @@
 #define IBRIDGE_PIN_ROW1 2
 #define IBRIDGE_PIN_ROW2 14
 
-//by how many do we adjust the brightness during dimming or brightening?
-#define BRI_INC 5
-
 void IBridge_GPIO_Config(void);
 
 HTTPClient http;
+ESP8266WebServer httpd(80);
 
 String token = "";
 String bridgeIP = "";
-
 int lastSelectorButtonPressed = 0;
 int lastButtonPressed = 0;
 boolean actionDone = true;
+int targetGroup[6+1];
+const char * header = R"(<!DOCTYPE html>
+<html>
+<head>
+<title>huepad</title>
+<link rel="stylesheet" href="/style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+</head>
+<body>
+<div id="top">
+        <span id="title">huepad</span>
+        <a href="/">Configuration</a>
+        <!-- <a href="/debug">Debug</a> -->
+</div>
+)";
 
 void IBridge_GPIO_Config()
 {
@@ -101,6 +121,29 @@ String spiffsRead(String path) {
 	String x = f.readStringUntil('\n');
 	f.close();
 	return x;
+}
+
+int loadTargetGroupForButton(int button) {
+	String path = String("/buttons/") + button;
+	Serial.print("path="); Serial.println(path);
+	if ( SPIFFS.exists(path) ) {
+		String temp = spiffsRead(path);
+		Serial.print("button "); Serial.print(button); Serial.print(" controls group "); Serial.println(temp);
+		return temp.toInt();
+	} else {
+		Serial.print("Returning default for button "); Serial.println(button);
+		return button; //default to the same group number as the button pressed.
+	}
+}
+void loadTargetGroupForButtons() {
+	for ( int i=1; i<=6; i++ ) {
+		targetGroup[i] = loadTargetGroupForButton(i);
+		Serial.print("button "); Serial.print(i); Serial.print("="); Serial.println(targetGroup[i]);
+	}
+}
+void setTargetGroupForButton(int button, String target) {
+	Serial.print("save: button "); Serial.print(button); Serial.print(" controls group "); Serial.println(target);
+	spiffsWrite(String("/buttons/") + button, target);
 }
 
 String jsonPseudoDecode(String json, String key) {
@@ -205,18 +248,47 @@ void setup()
 	Serial.begin(115200);
 	Serial.println();
 	delay(200);
-	Serial.println("huepad");
+	Serial.print("huepad v"); Serial.println(VERSION);
 
 	Serial.println("Starting keypad");
 	IBridge_GPIO_Config();
 
 	if ( getKeyWithDebounce(1000) == 5 ) {
-		Serial.println("Button 5 was held. Forgetting everything - this could take a while.");
-		WiFi.disconnect();
+		Serial.print("Button 5 was held. Forgetting everything - this could take a while");
+		WiFi.disconnect(); Serial.print(".");
+		SPIFFS.format(); Serial.print(".");
+		Serial.println(" done. Reloading");
+		ESP.restart();
+	}
+
+	Serial.print("Mounting disk... ");
+	FSInfo fs_info;
+	SPIFFS.begin();
+	if ( ! SPIFFS.info(fs_info) ) {
+		//the FS info was not retrieved correctly. it's probably not formatted
+		Serial.print("failed. Formatting disk... ");
 		SPIFFS.format();
+		Serial.print("done. Mounting disk... ");
+		SPIFFS.begin();
+		SPIFFS.info(fs_info);
+	}
+	Serial.print("done. ");
+	Serial.print(fs_info.usedBytes); Serial.print("/"); Serial.print(fs_info.totalBytes); Serial.println(" bytes used");
+	
+	Serial.println("Loading buttons");
+	loadTargetGroupForButtons();
+
+	Serial.println("Checking version");
+	String lastVerString = spiffsRead("/version");
+	if ( lastVerString.toInt() != VERSION ) {
+		//we just got upgrayedded or downgrayedded
+		Serial.print("We just moved from v"); Serial.println(lastVerString);
+		spiffsWrite("/version", String(VERSION));
+		Serial.print("Welcome to v"); Serial.println(VERSION);
 	}
 
 	Serial.println("Starting wireless.");
+	WiFi.hostname("huepad");
 	WiFiManager wifiManager; //Load the Wi-Fi Manager library.
 	wifiManager.setTimeout(300); //Give up with the AP if no users gives us configuration in this many secs.
 	if(!wifiManager.autoConnect("huepad Setup")) {
@@ -226,6 +298,64 @@ void setup()
 	}
 	Serial.print("WiFi connected: ");
 	Serial.println(WiFi.localIP());
+
+	Serial.println("Starting Web server.");
+	httpd.on("/buttons.json", HTTP_POST, [&](){
+		Serial.println("Saving button configs.");
+		for ( int i=1; i<=6; i++ ) {
+			String value = httpd.arg(String(i));
+			Serial.print(i); Serial.print("="); Serial.println(value);
+			//spiffsWrite(String("/buttons/") + i, value);
+			setTargetGroupForButton(i, value);
+		}
+		Serial.println("done. Reloading button assignments.");
+		loadTargetGroupForButtons();
+		httpd.sendHeader("Location", "/?saved");
+		httpd.send(302, "application/json", "");
+		httpd.client().stop();
+	});
+	httpd.on("/style.css", [&](){
+		httpd.send(200, "text/css",R"(
+			html {
+				font-family:sans-serif;
+				background-color:black;
+				color: #e0e0e0;
+			}
+			div {
+				background-color: #202020;
+			}
+			h1,h2,h3,h4,h5 {
+				color: #2020e0;
+			}
+			a {
+				color: #50f050;
+			}
+			form * {
+				display:block;
+				border: 1px solid #000;
+				font-size: 14px;
+				color: #fff;
+				background: #004;
+				padding: 5px;
+			}
+		)");
+		httpd.client().stop();
+	});
+	httpd.on("/", [&](){
+		httpd.setContentLength(CONTENT_LENGTH_UNKNOWN);
+		httpd.send(200, "text/html", header);
+		httpd.sendContent(R"(<h1>Configure buttons</h1><form method="POST" action="/buttons.json">)");
+		for ( int i=1; i<=6; i++ ) {
+			httpd.sendContent(String("Button ") + i + ": <select name=\"" + i + "\">");
+			for ( int j=0; j<=16; j++ ) {
+				httpd.sendContent(String("<option value=\"") + j + "\">" + (j==0 ? "All Lights" : (String("Group ") + j) ) + "</option>");
+			}
+			httpd.sendContent("</select>");
+		}
+		httpd.sendContent("<button type=\"submit\">Save</button></form>");
+		httpd.client().stop();
+	});
+	httpd.begin();
 
 	Serial.println("Asking for your Hue bridges using N-UPnP hack... ");
 	WiFiClientSecure client;
@@ -265,20 +395,6 @@ Connection: close
 	Serial.print("Your first bridge is at "); Serial.println(bridgeIP);
 	client.stop();
 
-	Serial.print("Mounting disk... ");
-	FSInfo fs_info;
-	SPIFFS.begin();
-	if ( ! SPIFFS.info(fs_info) ) {
-		//the FS info was not retrieved correctly. it's probably not formatted
-		Serial.print("failed. Formatting disk... ");
-		SPIFFS.format();
-		Serial.print("done. Mounting disk... ");
-		SPIFFS.begin();
-		SPIFFS.info(fs_info);
-	}
-	Serial.print("done. ");
-	Serial.print(fs_info.usedBytes); Serial.print("/"); Serial.print(fs_info.totalBytes); Serial.println(" bytes used");
-
 	Serial.print("Loading token from disk... ");
 	if ( SPIFFS.exists("/token") ) {
 		token = spiffsRead("/token");
@@ -302,6 +418,9 @@ Connection: close
 
 void loop()
 {
+	
+	httpd.handleClient();
+
 	uint8_t button = getKeyWithDebounce(20);
 	
 	if ( button > 0 && button <= 6 ) {
@@ -313,25 +432,27 @@ void loop()
 	}
 	if ( button == 0 && !actionDone ) {
 		//the user pressed a button, then released it
-		hueToggleGroupState(lastSelectorButtonPressed-1);
+		hueToggleGroupState(targetGroup[lastSelectorButtonPressed]);
 		actionDone = true;
 	} 
 	if ( button == 7 ) {
 		//dim that group
-		hueIncrementGroupBrightness(lastSelectorButtonPressed-1, -BRI_INC);
+		hueIncrementGroupBrightness(targetGroup[lastSelectorButtonPressed], -BRI_INC);
 		actionDone = true;
 	}
 	if ( button == 8 ) {
 		//party-mode that group
-		hueSetGroupEffect(lastSelectorButtonPressed-1);
+		hueSetGroupEffect(targetGroup[lastSelectorButtonPressed]);
 		actionDone = true;
 	}
 	if ( button == 9 ) {
 		//brighten that group
-		hueIncrementGroupBrightness(lastSelectorButtonPressed-1, BRI_INC);
+		hueIncrementGroupBrightness(targetGroup[lastSelectorButtonPressed], BRI_INC);
 		actionDone = true;
 	}
 
 	lastButtonPressed = button;
 }
+
+
 
