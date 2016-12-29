@@ -6,7 +6,7 @@
 #define VERSION 6
 
 //by how many do we adjust the brightness during dimming or brightening?
-#define BRI_INC 5
+#define BRI_INC 20
 
 /////////////////////////////////////////////////////////////////////
 
@@ -235,12 +235,13 @@ void hueToggleGroupState(int number) {
 }
 void hueIncrementGroupBrightness(int number, int inc) {
 	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
-	String data = String("{\"bri_inc\":") + inc + "}";
+	String data = String("{\"bri_inc\":") + inc + ", \"transitiontime\":2}";
 	int code = http.PUT(data);
 	Serial.print("setting group "); Serial.print(number); Serial.print(" - "); Serial.print(data); Serial.print(" - result: ");
 	String result = http.getString();
 	Serial.println(result);
 	http.end();
+	delay(200); //bridge cooldown
 }
 
 void setup()
