@@ -222,6 +222,7 @@ void hueSetGroupState(int number, boolean desiredState) {
 	String result = http.getString();
 	Serial.println(result);
 	http.end();
+	delay(250); //bridge cooldown
 }
 void hueSetGroupEffect(int number) {
 	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
@@ -231,6 +232,7 @@ void hueSetGroupEffect(int number) {
 	String result = http.getString();
 	Serial.println(result);
 	http.end();
+	delay(250); //bridge cooldown
 }
 
 void hueToggleGroupState(int number) {
