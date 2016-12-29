@@ -226,7 +226,7 @@ void hueSetGroupState(int number, boolean desiredState) {
 }
 void hueSetGroupEffect(int number) {
 	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
-	String data = "{\"effect\":\"colorloop\"}";
+	String data = "{\"effect\":\"colorloop\", \"on\":true}";
 	int code = http.PUT(data);
 	Serial.print("setting group "); Serial.print(number); Serial.print(" - "); Serial.print(data); Serial.print(" - result: ");
 	String result = http.getString();
