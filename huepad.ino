@@ -3,7 +3,7 @@
 #include <FS.h>
 #include <ESP8266WebServer.h>
 
-#define VERSION 6
+#define VERSION 7
 
 //by how many do we adjust the brightness during dimming or brightening?
 #define BRI_INC 20
