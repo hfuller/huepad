@@ -208,8 +208,11 @@ boolean hueGetGroupState(int number) {
 	String result = http.getString();
 	http.end();
 	Serial.print("checking group "); Serial.print(number); Serial.print(" - "); Serial.println(result);
-	result = jsonPseudoDecode(result, "any_on");
-	return result.startsWith("true");
+	String jAnyOn = jsonPseudoDecode(result, "any_on");
+	String jEffect = jsonPseudoDecode(result, "effect");
+
+	if ( ! jEffect.startsWith("none") ) return false;
+	return jAnyOn.startsWith("true");
 }
 void hueSetGroupState(int number, boolean desiredState) {
 	http.begin(bridgeIP, 80, String("/api/") + token + "/groups/" + String(number) + "/action");
